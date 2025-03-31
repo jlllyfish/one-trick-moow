@@ -55,7 +55,12 @@ def process_tab(consortium_name, file_key, pays_key, status_key, etab_key):
     if data_file is not None:
         df = load_data(data_file)
         if df is not None:
-            st.write(f"Nombre total d'enregistrements chargés : {len(df)}")
+            # Affichage du nombre total d'enregistrements chargés
+            total_records = len(df)
+            st.write(f"Nombre total d'enregistrements chargés : {total_records}")
+            
+            # Variable pour suivre les enregistrements après filtrage
+            filtered_df = df.copy()
             
             # Filtrage par pays (colonne 'pays_accueil') avec "Tous les Pays" en option initiale
             if "pays_accueil" in df.columns:
@@ -63,7 +68,9 @@ def process_tab(consortium_name, file_key, pays_key, status_key, etab_key):
                 pays_options = ["Tous les Pays"] + pays_options
                 selected_pays = st.selectbox("Sélectionnez le pays", options=pays_options, key=pays_key)
                 if selected_pays != "Tous les Pays":
-                    df = df[df["pays_accueil"] == selected_pays]
+                    filtered_df = filtered_df[filtered_df["pays_accueil"] == selected_pays]
+                    # Affichage du nombre après filtrage par pays
+                    st.write(f"Nombre d'enregistrements pour le pays '{selected_pays}' : {len(filtered_df)}")
             else:
                 st.warning("La colonne 'pays_accueil' est absente du fichier.")
             
@@ -73,7 +80,9 @@ def process_tab(consortium_name, file_key, pays_key, status_key, etab_key):
                 status_options = ["Tous"] + status_options
                 selected_status = st.selectbox("Sélectionnez le statut participant", options=status_options, key=status_key)
                 if selected_status != "Tous":
-                    df = df[df["statut_participant"] == selected_status]
+                    filtered_df = filtered_df[filtered_df["statut_participant"] == selected_status]
+                    # Affichage du nombre après filtrage par statut
+                    st.write(f"Nombre d'enregistrements pour le statut '{selected_status}' : {len(filtered_df)}")
             else:
                 st.warning("La colonne 'statut_participant' est absente du fichier.")
             
@@ -87,25 +96,30 @@ def process_tab(consortium_name, file_key, pays_key, status_key, etab_key):
                 st.error("Aucune colonne 'EPLEFPA' ni 'etablissement' n'a été trouvée dans le fichier.")
                 return
             
-            etab_values = sorted(df[etab_col].dropna().unique().tolist())
+            etab_values = sorted(filtered_df[etab_col].dropna().unique().tolist())
             etab_options = ["Tous"] + etab_values
             selected_etab = st.selectbox("Sélectionnez l'établissement", options=etab_options, key=etab_key)
             if selected_etab != "Tous":
-                df = df[df[etab_col] == selected_etab]
+                filtered_df = filtered_df[filtered_df[etab_col] == selected_etab]
+                # Affichage du nombre après filtrage par établissement
+                st.write(f"Nombre d'enregistrements pour l'établissement '{selected_etab}' : {len(filtered_df)}")
+            
+            # Affichage du nombre total après tous les filtrages
+            st.write(f"Nombre total d'enregistrements après filtrage : {len(filtered_df)}")
             
             # Vérification des colonnes requises pour l'affichage
             required_columns = ["pays_accueil", etab_col, "demandeur_siret", "statut_participant"]
-            missing_cols = [col for col in required_columns if col not in df.columns]
+            missing_cols = [col for col in required_columns if col not in filtered_df.columns]
             if missing_cols:
                 st.error(f"Les colonnes suivantes sont manquantes : {', '.join(missing_cols)}")
             else:
                 # Préparation du tableau final
-                display_df = df[required_columns].copy()
+                display_df = filtered_df[required_columns].copy()
                 display_df.columns = ["Pays", "Etablissement", "SIRET", "Statut participant"]
                 st.dataframe(display_df)
                 
                 # Génération des liens de téléchargement
-                filename = f"{consortium_name.replace(' ', '_')}_{selected_pays if selected_pays != 'Tous les Pays' else 'TousLesPays'}_{selected_status}_{selected_etab}"
+                filename = f"{consortium_name.replace(' ', '_')}_{selected_pays if selected_pays != 'Tous les Pays' else 'TousLesPays'}_{selected_status if selected_status != 'Tous' else 'TousStatuts'}_{selected_etab if selected_etab != 'Tous' else 'TousEtablissements'}"
                 csv_link, excel_link = get_download_link(display_df, filename)
                 st.markdown(f"{csv_link} | {excel_link}", unsafe_allow_html=True)
     else:
